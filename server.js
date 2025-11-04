@@ -132,16 +132,50 @@ async function loginAndFetch(headless = true) {
   const browser = await launchBrowser(headless);
   const page = await browser.newPage();
 
+  // Tornar o ambiente mais "real" no Render
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.setExtraHTTPHeaders({
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+  });
+  try { await page.emulateTimezone("America/Sao_Paulo"); } catch (_) {}
+  page.setDefaultTimeout(45000);
+
   await page.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
   );
 
   console.log("🔑 Fazendo login...");
-  await page.goto(LOGIN_URL, { waitUntil: "networkidle2", timeout: 60000 });
-  await page.waitForSelector('input[name="username"]', { timeout: 15000 });
-  await page.waitForSelector('input[name="password"]', { timeout: 15000 });
-  await page.type('input[name="username"]', USER_EMAIL, { delay: 20 });
-  await page.type('input[name="password"]', USER_PASSWORD, { delay: 20 });
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
+  console.log("🌐 URL:", page.url());
+  try { console.log("📄 Título:", await page.title()); } catch (_) {}
+
+  // Espera flexível por diferentes seletores de login
+  const userSelectors = [
+    'input[name="username"]',
+    'input[name="email"]',
+    'form input[type="email"]',
+    'form input[name="login"]',
+  ];
+  const passSelectors = [
+    'input[name="password"]',
+    'form input[type="password"]',
+  ];
+
+  const foundUser = await Promise.race(
+    userSelectors.map(sel => page.waitForSelector(sel, { timeout: 45000, visible: true }).then(() => sel))
+  ).catch(() => null);
+  const foundPass = await Promise.race(
+    passSelectors.map(sel => page.waitForSelector(sel, { timeout: 45000, visible: true }).then(() => sel))
+  ).catch(() => null);
+
+  if (!foundUser || !foundPass) {
+    const htmlSample = (await page.content()).slice(0, 500).replace(/\s+/g, ' ').trim();
+    console.log("⚠️ Formulário de login não encontrado. Amostra HTML:", htmlSample);
+    throw new Error("Formulário de login não carregou no tempo esperado (Render)");
+  }
+
+  await page.type(foundUser, USER_EMAIL, { delay: 20 });
+  await page.type(foundPass, USER_PASSWORD, { delay: 20 });
 
   const botaoLogin = await page.$('button[type="submit"]');
   if (botaoLogin) {
@@ -158,7 +192,7 @@ async function loginAndFetch(headless = true) {
   await esperar(3000);
 
   console.log("📋 Acessando clientes...");
-  await page.goto(CLIENTS_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(CLIENTS_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
   await esperar(6000);
 
   try {

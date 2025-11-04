@@ -1,11 +1,13 @@
+require("dotenv").config();
 const express = require("express");
-const puppeteer = require("puppeteer");
+const chromium = require("@sparticuz/chromium");
+const puppeteer = require("puppeteer-core");
 const { Low } = require("lowdb");
 const { JSONFile } = require("lowdb/node");
 const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 
 /* ======================= CONFIGURAÇÕES ======================= */
 const ATUALIZAR_CADA_MINUTOS = 5;  // frequência da coleta automática
@@ -44,18 +46,12 @@ function formatarDataBrasil(isoString) {
 }
 
 async function launchBrowser(headless = true) {
+  const execPath = process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath();
   return puppeteer.launch({
-    headless,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-accelerated-2d-canvas",
-      "--no-first-run",
-      "--no-zygote",
-      "--single-process",
-      "--disable-gpu"
-    ],
+    headless: chromium.headless,
+    executablePath: execPath,
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
   });
 }
 

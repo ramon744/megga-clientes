@@ -3,6 +3,7 @@ services:
     name: automacao-mega-paine
     env: node
     plan: starter
+    healthCheckPath: /health
     buildCommand: npm install
     startCommand: npm start
     envVars:

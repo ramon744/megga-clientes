@@ -347,3 +347,12 @@ app.listen(PORT, () => {
   agendarAtualizacoes();
 });
 
+// Healthcheck simples para plataformas de deploy (Render)
+app.get('/', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', uptime_s: process.uptime() });
+});
+

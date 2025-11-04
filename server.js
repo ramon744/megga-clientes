@@ -145,14 +145,20 @@ async function loginAndFetch(headless = true) {
   );
 
   console.log("🔑 Fazendo login...");
-  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
-  console.log("🌐 URL:", page.url());
-  let pageTitle = "";
-  try { pageTitle = await page.title(); console.log("📄 Título:", pageTitle); } catch (_) {}
-  if ((pageTitle || "").toLowerCase().includes("404")) {
-    console.log("↪️  Detetado 404. Tentando rota com hash explicitamente...");
-    await page.goto("https://meggapainel.com.br/#/login", { waitUntil: "domcontentloaded", timeout: 60000 });
-    try { console.log("📄 Título após fallback:", await page.title()); } catch (_) {}
+  // Alguns ambientes (CDN/WAF) retornam 404 ao acessar rota direta.
+  // Estratégia: abrir raiz, então navegar para #/login via SPA, com tentativas.
+  const MAX_TENTATIVAS = 3;
+  let tentativa = 0;
+  while (tentativa++ < MAX_TENTATIVAS) {
+    await page.goto("https://meggapainel.com.br", { waitUntil: "networkidle2", timeout: 60000 });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => { location.hash = "#/login"; });
+    await page.waitForTimeout(1500);
+    console.log("🌐 URL:", page.url());
+    let pageTitle = "";
+    try { pageTitle = await page.title(); console.log("📄 Título:", pageTitle); } catch (_) {}
+    if (!((pageTitle || "").toLowerCase().includes("404"))) break;
+    console.log("↪️  404 detectado, tentando novamente (tentativa", tentativa, ")...");
   }
 
   // Espera flexível por diferentes seletores de login

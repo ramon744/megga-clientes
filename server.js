@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 const ATUALIZAR_CADA_MINUTOS = 5;  // frequência da coleta automática
 const CACHE_TTL_MINUTOS = 10;      // tempo de validade do cache
 
-const LOGIN_URL = "https://meggapainel.com.br/login";
+const LOGIN_URL = "https://meggapainel.com.br/#/login";
 const CLIENTS_URL = "https://meggapainel.com.br/#/customers";
 
 const USER_EMAIL = process.env.USER_EMAIL || "";
@@ -147,7 +147,13 @@ async function loginAndFetch(headless = true) {
   console.log("🔑 Fazendo login...");
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
   console.log("🌐 URL:", page.url());
-  try { console.log("📄 Título:", await page.title()); } catch (_) {}
+  let pageTitle = "";
+  try { pageTitle = await page.title(); console.log("📄 Título:", pageTitle); } catch (_) {}
+  if ((pageTitle || "").toLowerCase().includes("404")) {
+    console.log("↪️  Detetado 404. Tentando rota com hash explicitamente...");
+    await page.goto("https://meggapainel.com.br/#/login", { waitUntil: "domcontentloaded", timeout: 60000 });
+    try { console.log("📄 Título após fallback:", await page.title()); } catch (_) {}
+  }
 
   // Espera flexível por diferentes seletores de login
   const userSelectors = [
@@ -162,10 +168,10 @@ async function loginAndFetch(headless = true) {
   ];
 
   const foundUser = await Promise.race(
-    userSelectors.map(sel => page.waitForSelector(sel, { timeout: 45000, visible: true }).then(() => sel))
+    userSelectors.map(sel => page.waitForSelector(sel, { timeout: 60000, visible: true }).then(() => sel))
   ).catch(() => null);
   const foundPass = await Promise.race(
-    passSelectors.map(sel => page.waitForSelector(sel, { timeout: 45000, visible: true }).then(() => sel))
+    passSelectors.map(sel => page.waitForSelector(sel, { timeout: 60000, visible: true }).then(() => sel))
   ).catch(() => null);
 
   if (!foundUser || !foundPass) {
